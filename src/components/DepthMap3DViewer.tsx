@@ -51,6 +51,18 @@ function FullscreenParameterPanel({
   isDebouncing?: boolean;
   onParameterChange: (params: any) => void;
 }) {
+  // 本地状态管理，用于拖动时的临时显示
+  const [tempEdgeWidth, setTempEdgeWidth] = useState(edgeWidth);
+  const [tempChamferAngle, setTempChamferAngle] = useState(chamferAngle);
+  
+  // 当外部props变化时，同步本地状态
+  useEffect(() => {
+    setTempEdgeWidth(edgeWidth);
+  }, [edgeWidth]);
+  
+  useEffect(() => {
+    setTempChamferAngle(chamferAngle);
+  }, [chamferAngle]);
   return (
     <div className="absolute top-3 right-16 z-10 bg-white bg-opacity-95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-4 w-80">
       <div className="mb-3">
@@ -102,24 +114,26 @@ function FullscreenParameterPanel({
           </div>
         </div>
 
-        {/* 边缘宽度 */}
-        {edgeType !== 'vertical' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              边缘宽度: {edgeWidth}px
-              {(isProcessing || isDebouncing) && (
-                <span className="text-xs text-orange-500 ml-2">
-                  {isDebouncing ? '准备计算...' : '计算中...'}
-                </span>
-              )}
-            </label>
-                         <input
+                 {/* 边缘宽度 */}
+         {edgeType !== 'vertical' && (
+           <div>
+             <label className="block text-sm font-medium text-gray-700 mb-2">
+               边缘宽度: {tempEdgeWidth}px
+               {(isProcessing || isDebouncing) && (
+                 <span className="text-xs text-orange-500 ml-2">
+                   {isDebouncing ? '准备计算...' : '计算中...'}
+                 </span>
+               )}
+             </label>
+             <input
                type="range"
                min="1"
                max="100"
                step="1"
-               value={edgeWidth}
-               onChange={(e) => onParameterChange({ edgeWidth: parseInt(e.target.value) })}
+               value={tempEdgeWidth}
+               onChange={(e) => setTempEdgeWidth(parseInt(e.target.value))}
+               onMouseUp={() => onParameterChange({ edgeWidth: tempEdgeWidth })}
+               onTouchEnd={() => onParameterChange({ edgeWidth: tempEdgeWidth })}
                className="w-full"
                disabled={isProcessing || isDebouncing}
              />
@@ -127,14 +141,17 @@ function FullscreenParameterPanel({
                <span>1px</span>
                <span>100px</span>
              </div>
-          </div>
-        )}
+             <p className="text-xs text-gray-400 mt-1">
+               💡 拖拽时实时预览，松开鼠标后生效
+             </p>
+           </div>
+         )}
 
         {/* 切角角度 */}
         {edgeType === 'chamfered' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              切角角度: {chamferAngle}°
+              切角角度: {tempChamferAngle}°
               {(isProcessing || isDebouncing) && (
                 <span className="text-xs text-orange-500 ml-2">
                   {isDebouncing ? '准备计算...' : '计算中...'}
@@ -146,8 +163,10 @@ function FullscreenParameterPanel({
               min="15"
               max="75"
               step="5"
-              value={chamferAngle}
-              onChange={(e) => onParameterChange({ chamferAngle: parseInt(e.target.value) })}
+              value={tempChamferAngle}
+              onChange={(e) => setTempChamferAngle(parseInt(e.target.value))}
+              onMouseUp={() => onParameterChange({ chamferAngle: tempChamferAngle })}
+              onTouchEnd={() => onParameterChange({ chamferAngle: tempChamferAngle })}
               className="w-full"
               disabled={isProcessing || isDebouncing}
             />
@@ -155,6 +174,9 @@ function FullscreenParameterPanel({
               <span>15°</span>
               <span>75°</span>
             </div>
+            <p className="text-xs text-gray-400 mt-1">
+              💡 拖拽时实时预览，松开鼠标后生效
+            </p>
           </div>
         )}
 
