@@ -97,9 +97,9 @@ function extractSmartContour(imageData: ImageData): boolean[] {
   
   // 简化逻辑：只要像素不透明就认为是内部区域
   for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
+    // const r = data[i];
+    // const g = data[i + 1];
+    // const b = data[i + 2];
     const a = data[i + 3];
     
     // 透明度大于阈值的像素认为是内部区域

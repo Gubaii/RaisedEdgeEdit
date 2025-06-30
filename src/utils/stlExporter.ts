@@ -138,14 +138,14 @@ function calculateNormal(v1: Vector3, v2: Vector3, v3: Vector3): Vector3 {
 /**
  * 生成侧面三角形
  */
-function generateSideFaces(vertices: Vector3[], heights: number[], triangles: string[]): void {
+function generateSideFaces(_vertices: Vector3[], heights: number[], _triangles: string[]): void {
   // 为边缘生成侧面，这里简化处理
   // 实际应用中需要更复杂的算法来正确处理所有边缘情况
   
   // 检查是否在边界上，如果是则生成底面连接
   for (let i = 0; i < 4; i++) {
     if (heights[i] > 0) {
-      const bottomVertex = { ...vertices[i], z: 0 };
+      // const bottomVertex = { ...vertices[i], z: 0 };
       
       // 这里可以添加更多的侧面生成逻辑
       // 为简化，我们只生成基本的底面连接

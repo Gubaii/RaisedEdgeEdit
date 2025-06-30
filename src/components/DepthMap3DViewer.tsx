@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -110,8 +110,8 @@ function PreciseDepthMapModel({ depthMapUrl, modelHeight, width, height, quality
         
         // 严格使用像素值
         const r = imageData.data[pixelIndex];
-        const g = imageData.data[pixelIndex + 1];
-        const b = imageData.data[pixelIndex + 2];
+        // const g = imageData.data[pixelIndex + 1];
+        // const b = imageData.data[pixelIndex + 2];
         const alpha = imageData.data[pixelIndex + 3];
         
         // 计算深度：使用灰度值或红色通道
@@ -423,7 +423,7 @@ export function DepthMap3DViewer({
   const [showExitHint, setShowExitHint] = useState(false);
   const [currentQuality, setCurrentQuality] = useState<'low' | 'medium' | 'high' | 'ultra'>(quality);
   const [renderTime, setRenderTime] = useState<number>(0);
-  const hintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hintTimeoutRef = useRef<number | null>(null);
   
   // 性能监控
   React.useEffect(() => {
@@ -439,9 +439,9 @@ export function DepthMap3DViewer({
   const showHintWithDelay = () => {
     setShowExitHint(true);
     if (hintTimeoutRef.current) {
-      clearTimeout(hintTimeoutRef.current);
+      window.clearTimeout(hintTimeoutRef.current);
     }
-    hintTimeoutRef.current = setTimeout(() => {
+    hintTimeoutRef.current = window.setTimeout(() => {
       setShowExitHint(false);
     }, 3000);
   };
@@ -469,16 +469,16 @@ export function DepthMap3DViewer({
       }
     };
     
-    let mouseMoveTimeout: NodeJS.Timeout | null = null;
+    let mouseMoveTimeout: number | null = null;
     const handleMouseMove = () => {
-      if (isFullscreen) {
-        if (mouseMoveTimeout) {
-          clearTimeout(mouseMoveTimeout);
+              if (isFullscreen) {
+          if (mouseMoveTimeout) {
+            window.clearTimeout(mouseMoveTimeout);
+          }
+          mouseMoveTimeout = window.setTimeout(() => {
+            showHintWithDelay();
+          }, 200); // 增加防抖延迟
         }
-        mouseMoveTimeout = setTimeout(() => {
-          showHintWithDelay();
-        }, 200); // 增加防抖延迟
-      }
     };
     
     document.addEventListener('keydown', handleKeyDown);
@@ -488,10 +488,10 @@ export function DepthMap3DViewer({
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('mousemove', handleMouseMove);
       if (hintTimeoutRef.current) {
-        clearTimeout(hintTimeoutRef.current);
+        window.clearTimeout(hintTimeoutRef.current);
       }
       if (mouseMoveTimeout) {
-        clearTimeout(mouseMoveTimeout);
+        window.clearTimeout(mouseMoveTimeout);
       }
     };
   }, [isFullscreen]);

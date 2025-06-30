@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SimpleFileUpload } from './components/SimpleFileUpload';
 import { DepthMap3DViewer } from './components/DepthMap3DViewer';
 import { processImageWithEdges, imageDataToDataURL, EdgeProcessorOptions } from './utils/edgeProcessor';
@@ -38,7 +38,7 @@ function App() {
   });
   
   // 防抖计时器
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<number | null>(null);
   const [isDebouncing, setIsDebouncing] = useState(false);
 
   const handleFileSelect = async (file: File) => {
@@ -70,11 +70,11 @@ function App() {
     
     // 清除之前的定时器
     if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
+      window.clearTimeout(debounceTimer.current);
     }
     
     // 设置新的定时器，延迟300ms执行（减少延迟时间）
-    debounceTimer.current = setTimeout(async () => {
+    debounceTimer.current = window.setTimeout(async () => {
       setIsDebouncing(false);
       await processImages(imageData);
     }, 300);
@@ -89,7 +89,7 @@ function App() {
     // 清理函数
     return () => {
       if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
+        window.clearTimeout(debounceTimer.current);
       }
     };
   }, [edgeType, edgeWidth, chamferAngle, originalImageData]);
@@ -165,9 +165,9 @@ function App() {
     const result = new ImageData(width, height);
     
     for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
+      // const r = data[i];
+      // const g = data[i + 1];
+      // const b = data[i + 2];
       const a = data[i + 3];
       
       // 简化逻辑：只根据透明度判断
