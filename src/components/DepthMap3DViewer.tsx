@@ -14,6 +14,158 @@ interface DepthMap3DViewerProps {
     target: [number, number, number];
   } | null;
   onCameraStateChange?: (newState: { position: [number, number, number]; target: [number, number, number] }) => void;
+  
+  // 全屏参数面板相关props
+  edgeType?: 'vertical' | 'rounded' | 'chamfered';
+  edgeWidth?: number;
+  chamferAngle?: number;
+  isProcessing?: boolean;
+  isDebouncing?: boolean;
+  onParameterChange?: (params: {
+    edgeType?: 'vertical' | 'rounded' | 'chamfered';
+    edgeWidth?: number;
+    chamferAngle?: number;
+    modelHeight?: number;
+  }) => void;
+}
+
+// 全屏参数面板组件
+function FullscreenParameterPanel({ 
+  edgeType, 
+  edgeWidth, 
+  chamferAngle, 
+  modelHeight, 
+  isProcessing, 
+  isDebouncing,
+  onParameterChange 
+}: {
+  edgeType: 'vertical' | 'rounded' | 'chamfered';
+  edgeWidth: number;
+  chamferAngle: number;
+  modelHeight: number;
+  isProcessing?: boolean;
+  isDebouncing?: boolean;
+  onParameterChange: (params: any) => void;
+}) {
+  return (
+    <div className="absolute top-3 right-16 z-10 bg-white bg-opacity-95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-4 w-80">
+      <div className="mb-3">
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+          <span className="mr-2">⚙️</span>
+          参数调节
+          {(isProcessing || isDebouncing) && (
+            <span className="text-xs text-orange-500 ml-2">
+              {isDebouncing ? '准备计算...' : '计算中...'}
+            </span>
+          )}
+        </h3>
+      </div>
+      
+      <div className="space-y-4">
+        {/* 边缘类型 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">边缘类型</label>
+          <select
+            value={edgeType}
+            onChange={(e) => onParameterChange({ edgeType: e.target.value as 'vertical' | 'rounded' | 'chamfered' })}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            disabled={isProcessing || isDebouncing}
+          >
+            <option value="vertical">垂直边缘</option>
+            <option value="rounded">圆角边缘</option>
+            <option value="chamfered">切角边缘</option>
+          </select>
+        </div>
+
+        {/* 模型高度 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            模型高度: {modelHeight}mm
+          </label>
+          <input
+            type="range"
+            min="0.5"
+            max="5"
+            step="0.1"
+            value={modelHeight}
+            onChange={(e) => onParameterChange({ modelHeight: parseFloat(e.target.value) })}
+            className="w-full"
+            disabled={isProcessing || isDebouncing}
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>0.5mm</span>
+            <span>5mm</span>
+          </div>
+        </div>
+
+        {/* 边缘宽度 */}
+        {edgeType !== 'vertical' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              边缘宽度: {edgeWidth}px
+              {(isProcessing || isDebouncing) && (
+                <span className="text-xs text-orange-500 ml-2">
+                  {isDebouncing ? '准备计算...' : '计算中...'}
+                </span>
+              )}
+            </label>
+            <input
+              type="range"
+              min="5"
+              max="50"
+              step="1"
+              value={edgeWidth}
+              onChange={(e) => onParameterChange({ edgeWidth: parseInt(e.target.value) })}
+              className="w-full"
+              disabled={isProcessing || isDebouncing}
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>5px</span>
+              <span>50px</span>
+            </div>
+          </div>
+        )}
+
+        {/* 切角角度 */}
+        {edgeType === 'chamfered' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              切角角度: {chamferAngle}°
+              {(isProcessing || isDebouncing) && (
+                <span className="text-xs text-orange-500 ml-2">
+                  {isDebouncing ? '准备计算...' : '计算中...'}
+                </span>
+              )}
+            </label>
+            <input
+              type="range"
+              min="15"
+              max="75"
+              step="5"
+              value={chamferAngle}
+              onChange={(e) => onParameterChange({ chamferAngle: parseInt(e.target.value) })}
+              className="w-full"
+              disabled={isProcessing || isDebouncing}
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>15°</span>
+              <span>75°</span>
+            </div>
+          </div>
+        )}
+
+        {/* 加载指示器 */}
+        {(isProcessing || isDebouncing) && (
+          <div className="flex items-center justify-center py-2">
+            <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full mr-2"></div>
+            <span className="text-sm text-gray-600">
+              {isDebouncing ? '准备重新计算...' : '正在处理图像...'}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // 全屏按钮组件
@@ -417,7 +569,13 @@ export function DepthMap3DViewer({
   height, 
   quality = 'high',
   initialCameraState,
-  onCameraStateChange 
+  onCameraStateChange,
+  edgeType = 'vertical',
+  edgeWidth = 20,
+  chamferAngle = 45,
+  isProcessing = false,
+  isDebouncing = false,
+  onParameterChange
 }: DepthMap3DViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showExitHint, setShowExitHint] = useState(false);
@@ -519,6 +677,19 @@ export function DepthMap3DViewer({
           ))}
         </select>
       </div>
+
+      {/* 全屏参数面板 - 只在全屏时显示 */}
+      {isFullscreen && onParameterChange && (
+        <FullscreenParameterPanel
+          edgeType={edgeType}
+          edgeWidth={edgeWidth}
+          chamferAngle={chamferAngle}
+          modelHeight={modelHeight}
+          isProcessing={isProcessing}
+          isDebouncing={isDebouncing}
+          onParameterChange={onParameterChange}
+        />
+      )}
       
       <Canvas 
         shadows={{ 
@@ -552,12 +723,13 @@ export function DepthMap3DViewer({
           <div>🖱️ <strong>左键</strong>：旋转视角</div>
           <div>🎯 <strong>右键</strong>：平移视图</div>
           <div>⚡ <strong>滚轮</strong>：缩放距离 (1-100倍)</div>
+          {isFullscreen && <div>⚙️ <strong>右侧面板</strong>：实时调节参数</div>}
           {renderTime > 0 && <div>⏱️ <strong>渲染:</strong> {renderTime.toFixed(0)}ms</div>}
         </div>
       </div>
       
-      {/* 增强的信息面板 */}
-      <div className={`absolute top-3 right-3 text-xs text-gray-700 bg-white bg-opacity-90 px-4 py-3 rounded-lg backdrop-blur-sm shadow-sm ${isFullscreen ? 'text-sm' : ''}`}>
+      {/* 增强的信息面板 - 全屏时调整位置 */}
+      <div className={`absolute ${isFullscreen ? 'top-3 right-3' : 'top-3 right-3'} text-xs text-gray-700 bg-white bg-opacity-90 px-4 py-3 rounded-lg backdrop-blur-sm shadow-sm ${isFullscreen ? 'text-sm' : ''} ${isFullscreen && onParameterChange ? 'hidden' : ''}`}>
         <div className="space-y-1">
           <div><strong>模型高度:</strong> {modelHeight.toFixed(1)}mm</div>
           <div><strong>原始分辨率:</strong> {width}×{height}</div>
@@ -579,7 +751,7 @@ export function DepthMap3DViewer({
       {isFullscreen && showExitHint && (
         <div className="absolute top-20 left-1/2 transform -translate-x-1/2 pointer-events-none z-20 transition-opacity duration-500">
           <div className="bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg text-sm">
-            💡 按 ESC 键或点击 <span className="text-yellow-300">⬅️</span> 按钮退出全屏
+            💡 按 ESC 键或点击 <span className="text-yellow-300">⬅️</span> 按钮退出全屏 | 右侧可调节参数
           </div>
         </div>
       )}

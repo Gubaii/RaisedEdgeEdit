@@ -207,6 +207,27 @@ function App() {
     }
   };
 
+  // 全屏参数变化处理函数
+  const handleParameterChange = (params: {
+    edgeType?: 'vertical' | 'rounded' | 'chamfered';
+    edgeWidth?: number;
+    chamferAngle?: number;
+    modelHeight?: number;
+  }) => {
+    if (params.edgeType !== undefined) {
+      setEdgeType(params.edgeType);
+    }
+    if (params.edgeWidth !== undefined) {
+      setEdgeWidth(params.edgeWidth);
+    }
+    if (params.chamferAngle !== undefined) {
+      setChamferAngle(params.chamferAngle);
+    }
+    if (params.modelHeight !== undefined) {
+      setModelHeight(params.modelHeight);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-6xl mx-auto">
@@ -464,6 +485,12 @@ function App() {
                   height={processedImages.height}
                   initialCameraState={cameraState}
                   onCameraStateChange={handleCameraStateChange}
+                  edgeType={edgeType}
+                  edgeWidth={edgeWidth}
+                  chamferAngle={chamferAngle}
+                  isProcessing={isProcessing}
+                  isDebouncing={isDebouncing}
+                  onParameterChange={handleParameterChange}
                 />
                 
                 <div className="mt-4 text-center">
