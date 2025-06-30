@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment } from '@react-three/drei';
 import * as THREE from 'three';
@@ -255,15 +255,76 @@ function PreciseDepthMapModel({ depthMapUrl, modelHeight, width, height, quality
   );
 }
 
+// 相机状态保存的ref（在模块级别，保持跨组件重新渲染）
+let savedCameraState: {
+  position: [number, number, number];
+  target: [number, number, number];
+} | null = null;
+
 // 增强光照场景组件
 function EnhancedScene({ depthMapUrl, modelHeight, width, height, quality = 'high' }: DepthMap3DViewerProps) {
+  const controlsRef = useRef<any>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera>(null);
+  
+  // 保存相机状态
+  const saveCameraState = () => {
+    if (controlsRef.current && cameraRef.current) {
+      savedCameraState = {
+        position: [...cameraRef.current.position.toArray()] as [number, number, number],
+        target: [...controlsRef.current.target.toArray()] as [number, number, number]
+      };
+      console.log('保存相机状态:', savedCameraState);
+    }
+  };
+  
+  // 恢复相机状态
+  const restoreCameraState = () => {
+    if (savedCameraState && controlsRef.current && cameraRef.current) {
+      console.log('恢复相机状态:', savedCameraState);
+      
+      // 设置相机位置
+      cameraRef.current.position.set(...savedCameraState.position);
+      
+      // 设置控制器目标
+      controlsRef.current.target.set(...savedCameraState.target);
+      
+      // 更新控制器
+      controlsRef.current.update();
+    }
+  };
+  
+  // 监听参数变化，在组件卸载前保存状态
+  useEffect(() => {
+    return () => {
+      saveCameraState();
+    };
+  }, []);
+  
+  // 在新模型加载后恢复相机状态
+  useEffect(() => {
+    if (savedCameraState) {
+      // 延迟恢复，确保模型已经加载
+      const timer = setTimeout(() => {
+        restoreCameraState();
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [depthMapUrl, modelHeight]);
+
   return (
     <>
       {/* 相机 */}
-      <PerspectiveCamera makeDefault position={[8, 15, 12]} fov={40} />
+      <PerspectiveCamera 
+        ref={cameraRef}
+        makeDefault 
+        position={savedCameraState?.position || [8, 15, 12]} 
+        fov={40} 
+      />
       
       {/* 控制器 - 大幅增加缩放范围 */}
       <OrbitControls 
+        ref={controlsRef}
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
@@ -271,7 +332,7 @@ function EnhancedScene({ depthMapUrl, modelHeight, width, height, quality = 'hig
         minPolarAngle={Math.PI / 8}
         minDistance={1}
         maxDistance={100}
-        target={[0, 0, 0]}
+        target={savedCameraState?.target || [0, 0, 0]}
         enableDamping={true}
         dampingFactor={0.05}
         zoomSpeed={1.5}

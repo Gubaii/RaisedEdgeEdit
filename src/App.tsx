@@ -299,7 +299,7 @@ function App() {
                   <input
                     type="range"
                     min="0.5"
-                    max="3"
+                    max="5"
                     step="0.1"
                     value={modelHeight}
                     onChange={(e) => setModelHeight(parseFloat(e.target.value))}
@@ -307,7 +307,7 @@ function App() {
                   />
                   <div className="flex justify-between text-xs text-gray-500 mt-1">
                     <span>0.5mm</span>
-                    <span>3mm</span>
+                    <span>5mm</span>
                   </div>
                   <p className="text-xs text-gray-400 mt-1">
                     🎯 适合浮雕制作的高度范围
