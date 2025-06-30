@@ -27,6 +27,10 @@ interface DepthMap3DViewerProps {
     chamferAngle?: number;
     modelHeight?: number;
   }) => void;
+  
+  // 全屏状态管理props（由父组件App.tsx管理）
+  isFullscreen?: boolean;
+  onFullscreenToggle?: () => void;
 }
 
 // 全屏参数面板组件
@@ -109,20 +113,20 @@ function FullscreenParameterPanel({
                 </span>
               )}
             </label>
-            <input
-              type="range"
-              min="5"
-              max="50"
-              step="1"
-              value={edgeWidth}
-              onChange={(e) => onParameterChange({ edgeWidth: parseInt(e.target.value) })}
-              className="w-full"
-              disabled={isProcessing || isDebouncing}
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>5px</span>
-              <span>50px</span>
-            </div>
+                         <input
+               type="range"
+               min="1"
+               max="100"
+               step="1"
+               value={edgeWidth}
+               onChange={(e) => onParameterChange({ edgeWidth: parseInt(e.target.value) })}
+               className="w-full"
+               disabled={isProcessing || isDebouncing}
+             />
+             <div className="flex justify-between text-xs text-gray-500 mt-1">
+               <span>1px</span>
+               <span>100px</span>
+             </div>
           </div>
         )}
 
@@ -575,9 +579,10 @@ export function DepthMap3DViewer({
   chamferAngle = 45,
   isProcessing = false,
   isDebouncing = false,
-  onParameterChange
+  onParameterChange,
+  isFullscreen = false,
+  onFullscreenToggle
 }: DepthMap3DViewerProps) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [showExitHint, setShowExitHint] = useState(false);
   const [currentQuality, setCurrentQuality] = useState<'low' | 'medium' | 'high' | 'ultra'>(quality);
   const [renderTime, setRenderTime] = useState<number>(0);
@@ -605,7 +610,9 @@ export function DepthMap3DViewer({
   };
   
   const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+    if (onFullscreenToggle) {
+      onFullscreenToggle();
+    }
     if (!isFullscreen) {
       showHintWithDelay();
     }
@@ -619,31 +626,23 @@ export function DepthMap3DViewer({
     ultra: '极致质量'
   };
   
-  // 监听ESC键退出全屏
+    // 监听鼠标移动显示退出提示
   React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isFullscreen) {
-        setIsFullscreen(false);
+    let mouseMoveTimeout: number | null = null;
+    const handleMouseMove = () => {
+      if (isFullscreen) {
+        if (mouseMoveTimeout) {
+          window.clearTimeout(mouseMoveTimeout);
+        }
+        mouseMoveTimeout = window.setTimeout(() => {
+          showHintWithDelay();
+        }, 200); // 增加防抖延迟
       }
     };
     
-    let mouseMoveTimeout: number | null = null;
-    const handleMouseMove = () => {
-              if (isFullscreen) {
-          if (mouseMoveTimeout) {
-            window.clearTimeout(mouseMoveTimeout);
-          }
-          mouseMoveTimeout = window.setTimeout(() => {
-            showHintWithDelay();
-          }, 200); // 增加防抖延迟
-        }
-    };
-    
-    document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('mousemove', handleMouseMove);
     
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('mousemove', handleMouseMove);
       if (hintTimeoutRef.current) {
         window.clearTimeout(hintTimeoutRef.current);

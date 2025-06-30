@@ -37,6 +37,9 @@ function App() {
     }
   });
   
+  // 全屏状态管理（提升到App层级避免参数变化时重置）
+  const [is3DFullscreen, setIs3DFullscreen] = useState(false);
+  
   // 防抖计时器
   const debounceTimer = useRef<number | null>(null);
   const [isDebouncing, setIsDebouncing] = useState(false);
@@ -228,6 +231,25 @@ function App() {
     }
   };
 
+  // 3D全屏状态控制函数
+  const handle3DFullscreenToggle = () => {
+    setIs3DFullscreen(!is3DFullscreen);
+  };
+
+  // 监听ESC键退出全屏
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && is3DFullscreen) {
+        setIs3DFullscreen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [is3DFullscreen]);
+
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-6xl mx-auto">
@@ -290,16 +312,16 @@ function App() {
                     </label>
                     <input
                       type="range"
-                      min="5"
-                      max="50"
+                      min="1"
+                      max="100"
                       step="1"
                       value={edgeWidth}
                       onChange={(e) => setEdgeWidth(parseInt(e.target.value))}
                       className="w-full"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>5</span>
-                      <span>50</span>
+                      <span>1</span>
+                      <span>100</span>
                     </div>
                     <p className="text-xs text-gray-400 mt-1">
                       💡 拖拽结束后0.3秒开始计算
@@ -491,6 +513,8 @@ function App() {
                   isProcessing={isProcessing}
                   isDebouncing={isDebouncing}
                   onParameterChange={handleParameterChange}
+                  isFullscreen={is3DFullscreen}
+                  onFullscreenToggle={handle3DFullscreenToggle}
                 />
                 
                 <div className="mt-4 text-center">
