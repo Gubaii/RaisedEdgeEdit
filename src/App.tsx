@@ -23,6 +23,20 @@ function App() {
   const [chamferAngle, setChamferAngle] = useState(45);
   const [modelHeight, setModelHeight] = useState(1.5); // 新增：3D模型高度参数 (mm)
   
+  // 相机状态管理
+  const [cameraState, setCameraState] = useState<{
+    position: [number, number, number];
+    target: [number, number, number];
+  } | null>(() => {
+    // 从localStorage恢复相机状态
+    try {
+      const saved = localStorage.getItem('3d-camera-state');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  
   // 防抖计时器
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const [isDebouncing, setIsDebouncing] = useState(false);
@@ -180,6 +194,17 @@ function App() {
     link.href = url;
     link.download = filename;
     link.click();
+  };
+
+  // 保存相机状态的回调函数
+  const handleCameraStateChange = (newState: { position: [number, number, number]; target: [number, number, number] }) => {
+    setCameraState(newState);
+    // 持久化到localStorage
+    try {
+      localStorage.setItem('3d-camera-state', JSON.stringify(newState));
+    } catch (error) {
+      console.warn('无法保存相机状态到localStorage:', error);
+    }
   };
 
   return (
@@ -432,10 +457,13 @@ function App() {
                 </h2>
                 
                 <DepthMap3DViewer
+                  key="3d-viewer" // 稳定的key，避免重新挂载
                   depthMapUrl={processedImages.depthMap}
                   modelHeight={modelHeight}
                   width={processedImages.width}
                   height={processedImages.height}
+                  initialCameraState={cameraState}
+                  onCameraStateChange={handleCameraStateChange}
                 />
                 
                 <div className="mt-4 text-center">

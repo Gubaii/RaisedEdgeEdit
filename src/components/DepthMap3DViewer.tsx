@@ -9,6 +9,11 @@ interface DepthMap3DViewerProps {
   width: number;
   height: number;
   quality?: 'low' | 'medium' | 'high' | 'ultra'; // 新增质量选项
+  initialCameraState?: {
+    position: [number, number, number];
+    target: [number, number, number];
+  } | null;
+  onCameraStateChange?: (newState: { position: [number, number, number]; target: [number, number, number] }) => void;
 }
 
 // 全屏按钮组件
@@ -253,64 +258,72 @@ function PreciseDepthMapModel({ depthMapUrl, modelHeight, width, height, quality
   return (
     <mesh ref={meshRef} geometry={geometry} material={material} rotation={[-Math.PI / 2, 0, 0]} />
   );
-}
-
-// 相机状态保存的ref（在模块级别，保持跨组件重新渲染）
-let savedCameraState: {
-  position: [number, number, number];
-  target: [number, number, number];
-} | null = null;
+  }
 
 // 增强光照场景组件
-function EnhancedScene({ depthMapUrl, modelHeight, width, height, quality = 'high' }: DepthMap3DViewerProps) {
+function EnhancedScene({ 
+  depthMapUrl, 
+  modelHeight, 
+  width, 
+  height, 
+  quality = 'high',
+  initialCameraState,
+  onCameraStateChange 
+}: DepthMap3DViewerProps) {
   const controlsRef = useRef<any>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   
-  // 保存相机状态
+  // 保存相机状态到父组件
   const saveCameraState = () => {
-    if (controlsRef.current && cameraRef.current) {
-      savedCameraState = {
+    if (controlsRef.current && cameraRef.current && onCameraStateChange) {
+      const newState = {
         position: [...cameraRef.current.position.toArray()] as [number, number, number],
         target: [...controlsRef.current.target.toArray()] as [number, number, number]
       };
-      console.log('保存相机状态:', savedCameraState);
+      onCameraStateChange(newState);
     }
   };
   
   // 恢复相机状态
   const restoreCameraState = () => {
-    if (savedCameraState && controlsRef.current && cameraRef.current) {
-      console.log('恢复相机状态:', savedCameraState);
+    if (initialCameraState && controlsRef.current && cameraRef.current) {
+      console.log('恢复相机状态:', initialCameraState);
       
       // 设置相机位置
-      cameraRef.current.position.set(...savedCameraState.position);
+      cameraRef.current.position.set(...initialCameraState.position);
       
       // 设置控制器目标
-      controlsRef.current.target.set(...savedCameraState.target);
+      controlsRef.current.target.set(...initialCameraState.target);
       
       // 更新控制器
       controlsRef.current.update();
     }
   };
   
-  // 监听参数变化，在组件卸载前保存状态
-  useEffect(() => {
-    return () => {
-      saveCameraState();
-    };
-  }, []);
+  // 初始化相机位置
+  const defaultPosition: [number, number, number] = initialCameraState?.position || [8, 15, 12];
+  const defaultTarget: [number, number, number] = initialCameraState?.target || [0, 0, 0];
   
-  // 在新模型加载后恢复相机状态
+  // 在组件挂载后恢复相机状态
   useEffect(() => {
-    if (savedCameraState) {
-      // 延迟恢复，确保模型已经加载
+    if (initialCameraState) {
+      // 延迟恢复，确保控制器已经初始化
       const timer = setTimeout(() => {
         restoreCameraState();
       }, 100);
       
       return () => clearTimeout(timer);
     }
-  }, [depthMapUrl, modelHeight]);
+  }, [initialCameraState]);
+  
+  // 监听参数变化时保存当前状态
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveCameraState();
+    }, 500); // 延迟保存，避免频繁触发
+    
+    return () => clearTimeout(timer);
+  }, [modelHeight]); // 只在高度变化时保存状态
 
   return (
     <>
@@ -318,7 +331,7 @@ function EnhancedScene({ depthMapUrl, modelHeight, width, height, quality = 'hig
       <PerspectiveCamera 
         ref={cameraRef}
         makeDefault 
-        position={savedCameraState?.position || [8, 15, 12]} 
+        position={defaultPosition} 
         fov={40} 
       />
       
@@ -332,11 +345,12 @@ function EnhancedScene({ depthMapUrl, modelHeight, width, height, quality = 'hig
         minPolarAngle={Math.PI / 8}
         minDistance={1}
         maxDistance={100}
-        target={savedCameraState?.target || [0, 0, 0]}
+        target={defaultTarget}
         enableDamping={true}
         dampingFactor={0.05}
         zoomSpeed={1.5}
         panSpeed={1.2}
+        onChange={saveCameraState} // 当相机状态改变时保存
       />
       
       {/* 简化光照系统 */}
@@ -396,7 +410,15 @@ function EnhancedScene({ depthMapUrl, modelHeight, width, height, quality = 'hig
 }
 
 // 主组件
-export function DepthMap3DViewer({ depthMapUrl, modelHeight, width, height, quality = 'high' }: DepthMap3DViewerProps) {
+export function DepthMap3DViewer({ 
+  depthMapUrl, 
+  modelHeight, 
+  width, 
+  height, 
+  quality = 'high',
+  initialCameraState,
+  onCameraStateChange 
+}: DepthMap3DViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showExitHint, setShowExitHint] = useState(false);
   const [currentQuality, setCurrentQuality] = useState<'low' | 'medium' | 'high' | 'ultra'>(quality);
@@ -519,6 +541,8 @@ export function DepthMap3DViewer({ depthMapUrl, modelHeight, width, height, qual
           width={width}
           height={height}
           quality={currentQuality}
+          initialCameraState={initialCameraState}
+          onCameraStateChange={onCameraStateChange}
         />
       </Canvas>
       
