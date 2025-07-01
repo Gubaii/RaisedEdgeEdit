@@ -6,8 +6,10 @@ import * as THREE from 'three';
 interface DepthMap3DViewerProps {
   depthMapUrl: string;
   modelHeight: number;
-  width: number;
-  height: number;
+  width: number; // 高分辨率图像尺寸
+  height: number; // 高分辨率图像尺寸
+  originalWidth?: number; // 原始物理尺寸
+  originalHeight?: number; // 原始物理尺寸
   quality?: 'low' | 'medium' | 'high' | 'ultra'; // 新增质量选项
   initialCameraState?: {
     position: [number, number, number];
@@ -26,7 +28,19 @@ interface DepthMap3DViewerProps {
     edgeWidth?: number;
     chamferAngle?: number;
     modelHeight?: number;
+    enableDPIOptimization?: boolean;
+    targetDPI?: number;
+    enableEdgeSmoothing?: boolean;
+    smoothingStrength?: number;
   }) => void;
+  
+  // DPI优化相关props
+  enableDPIOptimization?: boolean;
+  targetDPI?: number;
+  
+  // 边缘平滑相关props
+  enableEdgeSmoothing?: boolean;
+  smoothingStrength?: number;
   
   // 全屏状态管理props（由父组件App.tsx管理）
   isFullscreen?: boolean;
@@ -38,7 +52,11 @@ function FullscreenParameterPanel({
   edgeType, 
   edgeWidth, 
   chamferAngle, 
-  modelHeight, 
+  modelHeight,
+  enableDPIOptimization,
+  targetDPI,
+  enableEdgeSmoothing,
+  smoothingStrength,
   isProcessing, 
   isDebouncing,
   onParameterChange 
@@ -47,6 +65,10 @@ function FullscreenParameterPanel({
   edgeWidth: number;
   chamferAngle: number;
   modelHeight: number;
+  enableDPIOptimization: boolean;
+  targetDPI: number;
+  enableEdgeSmoothing: boolean;
+  smoothingStrength: number;
   isProcessing?: boolean;
   isDebouncing?: boolean;
   onParameterChange: (params: any) => void;
@@ -180,6 +202,100 @@ function FullscreenParameterPanel({
           </div>
         )}
 
+        {/* DPI优化设置 */}
+        <div className="border-t border-gray-200 pt-4 mt-4">
+          <h4 className="text-sm font-semibold text-gray-900 mb-3">深度图DPI优化</h4>
+          
+          {/* DPI优化开关 */}
+          <div className="flex items-center space-x-3 mb-3">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enableDPIOptimization}
+                onChange={(e) => onParameterChange({ enableDPIOptimization: e.target.checked })}
+                className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                disabled={isProcessing || isDebouncing}
+              />
+              <span className="ml-2 text-sm text-gray-700">启用DPI优化</span>
+            </label>
+          </div>
+          
+          <p className="text-xs text-gray-400 mb-3">
+            🔍 保边缘放大→高质量降采样：物理尺寸不变，质量提升
+          </p>
+          
+          {/* 目标DPI设置 */}
+          {enableDPIOptimization && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                目标DPI: {targetDPI}
+              </label>
+              <input
+                type="range"
+                min="150"
+                max="600"
+                step="50"
+                value={targetDPI}
+                onChange={(e) => onParameterChange({ targetDPI: parseInt(e.target.value) })}
+                className="w-full"
+                disabled={isProcessing || isDebouncing}
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>150</span>
+                <span>300</span>
+                <span>600</span>
+              </div>
+            </div>
+                     )}
+         </div>
+
+        {/* 边缘平滑设置 */}
+        <div className="border-t border-gray-200 pt-4 mt-4">
+          <h4 className="text-sm font-semibold text-gray-900 mb-3">智能边缘平滑</h4>
+          
+          {/* 边缘平滑开关 */}
+          <div className="flex items-center space-x-3 mb-3">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enableEdgeSmoothing}
+                onChange={(e) => onParameterChange({ enableEdgeSmoothing: e.target.checked })}
+                className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                disabled={isProcessing || isDebouncing}
+              />
+              <span className="ml-2 text-sm text-gray-700">启用边缘平滑</span>
+            </label>
+          </div>
+          
+          <p className="text-xs text-gray-400 mb-3">
+            🎯 专门解决低分辨率深度图的锯齿边缘问题
+          </p>
+          
+          {/* 平滑强度设置 */}
+          {enableEdgeSmoothing && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                平滑强度: {Math.round(smoothingStrength * 100)}%
+              </label>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.1"
+                value={smoothingStrength}
+                onChange={(e) => onParameterChange({ smoothingStrength: parseFloat(e.target.value) })}
+                className="w-full"
+                disabled={isProcessing || isDebouncing}
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>10%</span>
+                <span>50%</span>
+                <span>100%</span>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* 加载指示器 */}
         {(isProcessing || isDebouncing) && (
           <div className="flex items-center justify-center py-2">
@@ -227,7 +343,7 @@ function FullscreenButton({ onToggleFullscreen, isFullscreen }: { onToggleFullsc
 }
 
 // 精细3D模型组件 - 手动计算顶点位置
-function PreciseDepthMapModel({ depthMapUrl, modelHeight, width, height, quality = 'high' }: DepthMap3DViewerProps) {
+function PreciseDepthMapModel({ depthMapUrl, modelHeight, width, height, originalWidth, originalHeight, quality = 'high' }: DepthMap3DViewerProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const [imageData, setImageData] = React.useState<ImageData | null>(null);
   
@@ -295,9 +411,14 @@ function PreciseDepthMapModel({ depthMapUrl, modelHeight, width, height, quality
         // 计算深度：使用灰度值或红色通道
         const depth = (alpha > 32) ? (r / 255) : 0;
         
-        // 计算3D坐标：严格按像素网格映射
-        const worldX = (x / (gridWidth - 1) - 0.5) * 10;
-        const worldY = ((gridHeight - 1 - y) / (gridHeight - 1) - 0.5) * 10 * (height / width);
+        // 计算3D坐标：使用原始物理尺寸映射
+        // 物理尺寸（使用原始尺寸，如果没有则使用当前尺寸）
+        const physicalWidth = originalWidth || width;
+        const physicalHeight = originalHeight || height;
+        const physicalScale = 10; // 基础缩放因子
+        
+        const worldX = (x / (gridWidth - 1) - 0.5) * physicalScale;
+        const worldY = ((gridHeight - 1 - y) / (gridHeight - 1) - 0.5) * physicalScale * (physicalHeight / physicalWidth);
         const worldZ = depth * modelHeight * 0.05;
         
         vertices.push(worldX, worldY, worldZ);
@@ -393,7 +514,7 @@ function PreciseDepthMapModel({ depthMapUrl, modelHeight, width, height, quality
     console.log(`创建了${vertices.length / 3}个顶点，${faces.length / 3}个三角形`);
     
     return geometry;
-  }, [imageData, modelHeight, width, height, quality]);
+  }, [imageData, modelHeight, width, height, originalWidth, originalHeight, quality]);
   
   // 移除复杂的平滑算法，只保留核心功能
   
@@ -444,6 +565,8 @@ function EnhancedScene({
   modelHeight, 
   width, 
   height, 
+  originalWidth,
+  originalHeight,
   quality = 'high',
   initialCameraState,
   onCameraStateChange 
@@ -560,6 +683,8 @@ function EnhancedScene({
         modelHeight={modelHeight}
         width={width}
         height={height}
+        originalWidth={originalWidth}
+        originalHeight={originalHeight}
         quality={quality}
       />
       
@@ -593,12 +718,18 @@ export function DepthMap3DViewer({
   modelHeight, 
   width, 
   height, 
+  originalWidth,
+  originalHeight,
   quality = 'high',
   initialCameraState,
   onCameraStateChange,
   edgeType = 'vertical',
   edgeWidth = 20,
   chamferAngle = 45,
+  enableDPIOptimization = true,
+  targetDPI = 300,
+  enableEdgeSmoothing = true,
+  smoothingStrength = 0.6,
   isProcessing = false,
   isDebouncing = false,
   onParameterChange,
@@ -706,6 +837,10 @@ export function DepthMap3DViewer({
           edgeWidth={edgeWidth}
           chamferAngle={chamferAngle}
           modelHeight={modelHeight}
+          enableDPIOptimization={enableDPIOptimization}
+          targetDPI={targetDPI}
+          enableEdgeSmoothing={enableEdgeSmoothing}
+          smoothingStrength={smoothingStrength}
           isProcessing={isProcessing}
           isDebouncing={isDebouncing}
           onParameterChange={onParameterChange}
@@ -732,6 +867,8 @@ export function DepthMap3DViewer({
           modelHeight={modelHeight}
           width={width}
           height={height}
+          originalWidth={originalWidth}
+          originalHeight={originalHeight}
           quality={currentQuality}
           initialCameraState={initialCameraState}
           onCameraStateChange={onCameraStateChange}

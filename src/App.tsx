@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { SimpleFileUpload } from './components/SimpleFileUpload';
 import { DepthMap3DViewer } from './components/DepthMap3DViewer';
-import { processImageWithEdges, imageDataToDataURL, EdgeProcessorOptions } from './utils/edgeProcessor';
+import { processImageWithEdges, imageDataToDataURL, processImageWithEdgesOptimized, imageDataToDataURLWithDPI, EdgeProcessorOptions } from './utils/edgeProcessor';
 
 interface ProcessedImages {
   original: string;
   contour: string;
   depthMap: string;
-  width: number;
-  height: number;
+  width: number; // 优化后的图像尺寸
+  height: number; // 优化后的图像尺寸
+  originalWidth: number; // 原始物理尺寸
+  originalHeight: number; // 原始物理尺寸
 }
 
 function App() {
@@ -22,6 +24,12 @@ function App() {
   const [edgeWidth, setEdgeWidth] = useState(20);
   const [chamferAngle, setChamferAngle] = useState(45);
   const [modelHeight, setModelHeight] = useState(1.5); // 新增：3D模型高度参数 (mm)
+  
+  // DPI优化相关状态
+  const [enableDPIOptimization, setEnableDPIOptimization] = useState(true);
+  const [targetDPI, setTargetDPI] = useState(300);
+  const [enableEdgeSmoothing, setEnableEdgeSmoothing] = useState(true);
+  const [smoothingStrength, setSmoothingStrength] = useState(0.6);
   
   // 相机状态管理
   const [cameraState, setCameraState] = useState<{
@@ -95,7 +103,7 @@ function App() {
         window.clearTimeout(debounceTimer.current);
       }
     };
-  }, [edgeType, edgeWidth, chamferAngle, originalImageData]);
+  }, [edgeType, edgeWidth, chamferAngle, enableDPIOptimization, targetDPI, enableEdgeSmoothing, smoothingStrength, originalImageData]);
 
   const loadImageFromFile = (file: File): Promise<ImageData> => {
     return new Promise((resolve, reject) => {
@@ -145,15 +153,39 @@ function App() {
         chamferAngle
       };
       
-      const depthMapImageData = processImageWithEdges(imageData, depthMapOptions);
-      const depthMapUrl = imageDataToDataURL(depthMapImageData);
+      // 调试信息：确认参数状态
+      console.log('📋 App.tsx 中的参数状态:');
+      console.log(`enableDPIOptimization: ${enableDPIOptimization}`);
+      console.log(`targetDPI: ${targetDPI}`);
+      console.log(`enableEdgeSmoothing: ${enableEdgeSmoothing}`);
+      console.log(`smoothingStrength: ${smoothingStrength}`);
+      
+      // 使用专门为深度图优化的处理函数
+      const depthMapImageData = processImageWithEdgesOptimized(
+        imageData, 
+        depthMapOptions, 
+        enableDPIOptimization, 
+        targetDPI,
+        enableEdgeSmoothing,
+        smoothingStrength
+      );
+      
+      // 使用带DPI信息的URL生成
+      const depthMapUrl = enableDPIOptimization 
+        ? imageDataToDataURLWithDPI(depthMapImageData, targetDPI)
+        : imageDataToDataURL(depthMapImageData);
+      
+      // 添加时间戳防止浏览器缓存
+      const timestamped = depthMapUrl + `#${Date.now()}`;
       
       setProcessedImages({
         original: originalUrl,
         contour: contourUrl,
-        depthMap: depthMapUrl,
-        width: imageData.width,
-        height: imageData.height
+        depthMap: timestamped, // 使用带时间戳的URL
+        width: depthMapImageData.width, // 优化后的高分辨率尺寸
+        height: depthMapImageData.height, // 优化后的高分辨率尺寸
+        originalWidth: imageData.width, // 原始物理尺寸
+        originalHeight: imageData.height // 原始物理尺寸
       });
       
     } catch (error) {
@@ -216,6 +248,10 @@ function App() {
     edgeWidth?: number;
     chamferAngle?: number;
     modelHeight?: number;
+    enableDPIOptimization?: boolean;
+    targetDPI?: number;
+    enableEdgeSmoothing?: boolean;
+    smoothingStrength?: number;
   }) => {
     if (params.edgeType !== undefined) {
       setEdgeType(params.edgeType);
@@ -228,6 +264,18 @@ function App() {
     }
     if (params.modelHeight !== undefined) {
       setModelHeight(params.modelHeight);
+    }
+    if (params.enableDPIOptimization !== undefined) {
+      setEnableDPIOptimization(params.enableDPIOptimization);
+    }
+    if (params.targetDPI !== undefined) {
+      setTargetDPI(params.targetDPI);
+    }
+    if (params.enableEdgeSmoothing !== undefined) {
+      setEnableEdgeSmoothing(params.enableEdgeSmoothing);
+    }
+    if (params.smoothingStrength !== undefined) {
+      setSmoothingStrength(params.smoothingStrength);
     }
   };
 
@@ -381,6 +429,104 @@ function App() {
                     🎯 适合浮雕制作的高度范围
                   </p>
                 </div>
+                
+                {/* DPI优化设置 */}
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">深度图DPI优化</h3>
+                  
+                  {/* DPI优化开关 */}
+                  <div className="flex items-center space-x-3 mb-3">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enableDPIOptimization}
+                        onChange={(e) => setEnableDPIOptimization(e.target.checked)}
+                        className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">启用DPI优化</span>
+                    </label>
+                  </div>
+                  
+                  <p className="text-xs text-gray-400 mb-3">
+                    🔍 保边缘放大→高质量降采样：保持物理尺寸不变，提升图像质量
+                  </p>
+                  
+                                     {/* 目标DPI设置 */}
+                   {enableDPIOptimization && (
+                     <div>
+                       <label className="block text-sm font-medium text-gray-700 mb-2">
+                         目标DPI: {targetDPI}
+                         {(isProcessing || isDebouncing) && (
+                           <span className="text-xs text-orange-500 ml-2">
+                             {isDebouncing ? '准备计算...' : '计算中...'}
+                           </span>
+                         )}
+                       </label>
+                       <input
+                         type="range"
+                         min="150"
+                         max="600"
+                         step="50"
+                         value={targetDPI}
+                         onChange={(e) => setTargetDPI(parseInt(e.target.value))}
+                         className="w-full"
+                       />
+                       <div className="flex justify-between text-xs text-gray-500 mt-1">
+                         <span>150 DPI</span>
+                         <span>300 DPI</span>
+                         <span>600 DPI</span>
+                       </div>
+                       <p className="text-xs text-gray-400 mt-1">
+                         📐 物理尺寸保持不变，质量提升至目标DPI
+                       </p>
+                     </div>
+                   )}
+                   
+                   {/* 边缘平滑设置 */}
+                   <div className="border-t border-gray-200 pt-3 mt-3">
+                     <div className="flex items-center space-x-3 mb-3">
+                       <label className="flex items-center cursor-pointer">
+                         <input
+                           type="checkbox"
+                           checked={enableEdgeSmoothing}
+                           onChange={(e) => setEnableEdgeSmoothing(e.target.checked)}
+                           className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                         />
+                         <span className="ml-2 text-sm text-gray-700">智能边缘平滑</span>
+                       </label>
+                     </div>
+                     
+                     <p className="text-xs text-gray-400 mb-3">
+                       🎯 专门解决低分辨率深度图的锯齿边缘问题
+                     </p>
+                     
+                     {/* 平滑强度设置 */}
+                     {enableEdgeSmoothing && (
+                       <div>
+                         <label className="block text-sm font-medium text-gray-700 mb-2">
+                           平滑强度: {Math.round(smoothingStrength * 100)}%
+                         </label>
+                         <input
+                           type="range"
+                           min="0.1"
+                           max="1.0"
+                           step="0.1"
+                           value={smoothingStrength}
+                           onChange={(e) => setSmoothingStrength(parseFloat(e.target.value))}
+                           className="w-full"
+                         />
+                         <div className="flex justify-between text-xs text-gray-500 mt-1">
+                           <span>轻微</span>
+                           <span>中等</span>
+                           <span>强烈</span>
+                         </div>
+                         <p className="text-xs text-gray-400 mt-1">
+                           ⚡ 只对边缘像素进行智能平滑，保持深度特征
+                         </p>
+                       </div>
+                     )}
+                   </div>
+                 </div>
               </div>
             </div>
           </div>
@@ -419,6 +565,16 @@ function App() {
                       {edgeType === 'chamfered' && ` • 角度: ${chamferAngle}°`}
                       {` • 高度: ${modelHeight}mm`}
                     </p>
+                    {enableDPIOptimization && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        🔍 DPI优化: 目标 {targetDPI} DPI • 物理尺寸保持不变
+                      </p>
+                    )}
+                    {enableEdgeSmoothing && (
+                      <p className="text-xs text-green-600 mt-1">
+                        🎯 边缘平滑: {Math.round(smoothingStrength * 100)}% 强度 • 专治锯齿边缘
+                      </p>
+                    )}
                   </div>
                   
                   {/* 图像网格 */}
@@ -475,6 +631,11 @@ function App() {
                       >
                         下载深度图
                       </button>
+                      {enableDPIOptimization && (
+                        <p className="text-xs text-green-600 mt-1">
+                          ✨ 已优化至 {targetDPI} DPI
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -503,13 +664,19 @@ function App() {
                   key="3d-viewer" // 稳定的key，避免重新挂载
                   depthMapUrl={processedImages.depthMap}
                   modelHeight={modelHeight}
-                  width={processedImages.width}
-                  height={processedImages.height}
+                  width={processedImages.width} // 高分辨率尺寸
+                  height={processedImages.height} // 高分辨率尺寸
+                  originalWidth={processedImages.originalWidth} // 原始物理尺寸
+                  originalHeight={processedImages.originalHeight} // 原始物理尺寸
                   initialCameraState={cameraState}
                   onCameraStateChange={handleCameraStateChange}
                   edgeType={edgeType}
                   edgeWidth={edgeWidth}
                   chamferAngle={chamferAngle}
+                  enableDPIOptimization={enableDPIOptimization}
+                  targetDPI={targetDPI}
+                  enableEdgeSmoothing={enableEdgeSmoothing}
+                  smoothingStrength={smoothingStrength}
                   isProcessing={isProcessing}
                   isDebouncing={isDebouncing}
                   onParameterChange={handleParameterChange}
